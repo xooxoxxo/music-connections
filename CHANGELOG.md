@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+
+- Installs as a git dependency under pnpm 9: `pnpm-workspace.yaml` now names the package itself (`packages: ["."]`), which pnpm 9 requires before it runs `prepare`.
+
 ## 0.2.0 (2026-10-16)
 
 The protocol rules that each service had copied now live here, as small pure functions with tests.
