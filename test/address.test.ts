@@ -20,6 +20,33 @@ describe("classifyAddress", () => {
   });
 });
 
+describe("cloud metadata addresses inside allowed ranges", () => {
+  const forms: Record<string, string[]> = {
+    "100.100.100.200": ["100.100.100.200", "::ffff:100.100.100.200", "::ffff:6464:64c8", "::100.100.100.200", "64:ff9b::6464:64c8"],
+    "fd00:ec2::254": ["fd00:ec2::254", "[fd00:ec2::254]", "FD00:EC2:0:0:0:0:0:254", "fd00:0ec2::0254"],
+    "168.63.129.16": ["168.63.129.16", "::ffff:168.63.129.16", "::ffff:a83f:8110"],
+    "192.0.0.192": ["192.0.0.192", "::ffff:192.0.0.192", "::ffff:c000:c0"],
+  };
+  for (const [name, ips] of Object.entries(forms)) {
+    it(`${name} is blocked as a literal, as a resolved address and mapped`, () => {
+      for (const ip of ips) {
+        expect(classifyAddress(ip), ip).toBe("blocked");
+        // resolved address of a LAN name, of a trusted name, and of a literal-IP host
+        expect(addressAllowed("meta.lan", ip, false), ip).toBe(false);
+        expect(addressAllowed("rg.example.com", ip, true), ip).toBe(false);
+        expect(() => checkResolvedAddresses(new URL("http://meta.lan/"), [ip], [])).toThrow(LinkError);
+        expect(() => checkResolvedAddresses(new URL("https://rg.example.com/"), ["93.184.216.34", ip], ["rg.example.com"])).toThrow(LinkError);
+        expect(() => checkResolvedAddresses(new URL("http://100.100.100.200/"), [ip], [])).toThrow(LinkError);
+      }
+    });
+  }
+
+  it("neighbours stay in their ranges", () => {
+    for (const ip of ["100.100.100.201", "100.100.100.199", "fd00:ec2::255", "fd00:ec2::23", "fd00:ec3::254"]) expect(classifyAddress(ip), ip).toBe("private");
+    for (const ip of ["168.63.129.17", "192.0.0.193"]) expect(classifyAddress(ip), ip).toBe("public");
+  });
+});
+
 describe("the pure IP parser agrees with node:net", () => {
   it.each([
     "1.2.3.4", "255.255.255.255", "256.1.1.1", "01.2.3.4", "1.2.3", "::", "::1", "1::", "1:2:3:4:5:6:7:8", "1:2:3:4:5:6:7:8:9", "1::2::3",

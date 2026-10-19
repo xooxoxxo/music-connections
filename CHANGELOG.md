@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+### Security
+
+- Cloud metadata addresses that sat inside allowed ranges are now always blocked, for any host form: AWS IPv6 `fd00:ec2::254` (inside unique-local `fc00::/7`) and Alibaba `100.100.100.200` (inside CGNAT `100.64.0.0/10`), plus Azure WireServer `168.63.129.16` and Oracle `192.0.0.192`, including their IPv4-mapped and NAT64 forms.
+
 ## 0.2.1
 
 ### Fixed

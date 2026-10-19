@@ -7,7 +7,10 @@
  *             169.254.0.0/16 and fe80::/10 (cloud metadata), multicast
  *             (224.0.0.0/4, ff00::/8), 240.0.0.0/4 with the broadcast
  *             address, `::`, and an IPv4-mapped, IPv4-compatible or NAT64
- *             address pointing at any of these; anything unparsable;
+ *             address pointing at any of these; the exact cloud metadata
+ *             addresses that sit inside an allowed range (100.100.100.200
+ *             Alibaba, fd00:ec2::254 AWS IPv6, 168.63.129.16 Azure WireServer,
+ *             192.0.0.192 Oracle legacy); anything unparsable;
  *   loopback  127.0.0.0/8 and ::1: only when the URL's host is literally
  *             loopback (localhost, 127.x; the host gate refuses IPv6 literals, so
  *             [::1] never passes), never a name resolving there;
@@ -78,8 +81,13 @@ export function ipVersion(s: string): 0 | 4 | 6 {
   return 0;
 }
 
+/** Metadata endpoints inside otherwise allowed ranges (CGNAT, public): never reachable, for any host form. */
+const METADATA_V4 = ["100.100.100.200", "168.63.129.16", "192.0.0.192"];
+const METADATA_V6_GROUPS = [0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254]; // fd00:ec2::254
+
 function classifyV4(b: number[]): AddressClass {
   const [a, c] = [b[0]!, b[1]!];
+  if (METADATA_V4.includes(b.join("."))) return "blocked";
   if (a === 0) return "blocked";
   if (a === 127) return "loopback";
   if (a === 169 && c === 254) return "blocked";
@@ -103,6 +111,7 @@ export function classifyAddress(ip: string): AddressClass {
   if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0)) return classifyV4(embedded());
   if ((g[0]! & 0xffc0) === 0xfe80) return "blocked"; // link-local fe80::/10
   if ((g[0]! & 0xff00) === 0xff00) return "blocked"; // multicast ff00::/8
+  if (g.every((x, i) => x === METADATA_V6_GROUPS[i])) return "blocked"; // AWS IPv6 metadata, inside fc00::/7
   if ((g[0]! & 0xfe00) === 0xfc00) return "private"; // unique local fc00::/7
   return "public";
 }
